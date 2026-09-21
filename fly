@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Launcher: runs the inflight package with the project's virtualenv.
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+cd "$DIR" && exec "$DIR/.venv/bin/python" -m inflight "$@"
