@@ -26,6 +26,8 @@ def main():
 
     p = sub.add_parser("prep", help="download everything for a flight (needs internet)")
     p.add_argument("flight", help="flight number / callsign, e.g. SK1415 or SAS1415")
+    p.add_argument("--from", dest="frm", help="origin airport code, if the looked-up route is wrong (e.g. ARN)")
+    p.add_argument("--to", help="destination airport code (e.g. HEL)")
     p.add_argument("--dep", help="scheduled departure, local origin time HH:MM")
     p.add_argument("--arr", help="scheduled arrival, local destination time HH:MM")
     p.add_argument("--duration", help="airborne time, e.g. 1h05m (overrides --dep/--arr)")
@@ -42,7 +44,7 @@ def main():
 
     a = ap.parse_args()
     if a.cmd == "prep":
-        prep_mod.prep(a.flight, a.duration, a.dep, a.arr, a.max_zoom, a.no_llm)
+        prep_mod.prep(a.flight, a.duration, a.dep, a.arr, a.max_zoom, a.no_llm, a.frm, a.to)
     elif a.cmd == "list":
         for p in sorted(prep_mod.FLIGHTS.glob("*.json")):
             print(p.stem)

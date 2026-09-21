@@ -39,14 +39,41 @@ def log(msg):
 # --- flight lookup ----------------------------------------------------------
 
 def lookup_route(flight):
+    """adsbdb route for a callsign, or None. Its data is crowdsourced and can be stale."""
     r = session.get(f"https://api.adsbdb.com/v0/callsign/{flight}", timeout=20)
     if r.status_code == 404:
-        raise SystemExit(f"adsbdb has no route for {flight}. Try the ICAO callsign (e.g. SAS1415).")
+        return None
     r.raise_for_status()
     resp = r.json().get("response")
-    if not isinstance(resp, dict) or "flightroute" not in resp:
-        raise SystemExit(f"No route found for {flight}: {resp}")
-    return resp["flightroute"]
+    return resp["flightroute"] if isinstance(resp, dict) and "flightroute" in resp else None
+
+
+def lookup_airport(code):
+    """Airport by IATA (ARN) or ICAO (ESSA) code from OurAirports, in adsbdb's format."""
+    import csv
+    path = DATA / "airports.csv"
+    if not path.exists():
+        DATA.mkdir(exist_ok=True)
+        log("downloading OurAirports airport list …")
+        r = session.get("https://davidmegginson.github.io/ourairports-data/airports.csv", timeout=120)
+        r.raise_for_status()
+        path.write_bytes(r.content)
+    code = code.strip().upper()
+    with path.open(encoding="utf-8") as fh:
+        for a in csv.DictReader(fh):
+            if code in (a["iata_code"], a["icao_code"], a["ident"]):
+                return {
+                    "iata_code": a["iata_code"] or a["ident"], "icao_code": a["icao_code"] or a["ident"],
+                    "name": a["name"], "municipality": a["municipality"] or a["name"],
+                    "latitude": float(a["latitude_deg"]), "longitude": float(a["longitude_deg"]),
+                    "country_iso_name": a["iso_country"],
+                }
+    raise SystemExit(f"Unknown airport code {code!r}")
+
+
+def parse_pair(s):
+    m = re.fullmatch(r"\s*([A-Za-z0-9]{3,4})\s*(?:-|>|->|→|\s)\s*([A-Za-z0-9]{3,4})\s*", s or "")
+    return (m.group(1), m.group(2)) if m else None
 
 
 # --- geonames ---------------------------------------------------------------
@@ -359,10 +386,28 @@ def ask(q):
 
 # --- main -------------------------------------------------------------------------
 
-def prep(flight, duration=None, dep=None, arr=None, max_zoom=7, no_llm=False):
+def prep(flight, duration=None, dep=None, arr=None, max_zoom=7, no_llm=False, frm=None, to=None):
     flight = re.sub(r"\s+", "", flight).upper()
     print(f"✈  Preparing {flight}")
     fr = lookup_route(flight)
+    if fr is None:
+        fr = {"airline": {}}
+        if not (frm and to):
+            print(f"  adsbdb doesn't know {flight}.")
+            pair = parse_pair(ask("  Route as FROM-TO airport codes (e.g. ARN-HEL): "))
+            if not pair:
+                raise SystemExit(f"No route for {flight}. Pass it with --from ARN --to HEL.")
+            frm, to = pair
+    elif not (frm or to):
+        o, d = fr["origin"], fr["destination"]
+        print(f"  adsbdb says: {o['iata_code']} {o['municipality']} → {d['iata_code']} {d['municipality']}")
+        pair = parse_pair(ask("  Correct? Enter to accept, or type the real route (e.g. ARN-HEL): "))
+        if pair:
+            frm, to = pair
+    if frm:
+        fr["origin"] = lookup_airport(frm)
+    if to:
+        fr["destination"] = lookup_airport(to)
     o, d = fr["origin"], fr["destination"]
     olat, olon, dlat, dlon = o["latitude"], o["longitude"], d["latitude"], d["longitude"]
     total = geo.haversine(olat, olon, dlat, dlon)
