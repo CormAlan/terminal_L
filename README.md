@@ -30,12 +30,15 @@ npm install            # installs mapscii (used as the map renderer)
 ./fly prep SK1415 --dep 10:05 --arr 11:15    # scheduled local times
 ./fly prep UA837 --duration 10h50m           # or airborne time directly
 ./fly prep SK1415                            # asks for times; Enter = estimate
+./fly prep AY812 --from ARN --to HEL         # fix a wrong looked-up route
 ```
 
 This downloads:
 
 - **Route**: origin/destination airports from [adsbdb](https://www.adsbdb.com/)
   (no API key needed). IATA (`SK1415`) or ICAO (`SAS1415`) callsigns both work.
+  adsbdb is crowdsourced and sometimes stale, so prep shows the route and lets you
+  correct it (e.g. `ARN-HEL`); unknown flights can be given with `--from`/`--to`.
 - **Cities** along a 150 km corridor of the great-circle path (GeoNames `cities15000`).
 - **Fun facts**: the Wikipedia article for each featured city. With
   `OPENAI_API_KEY` set in `.env`, OpenAI picks 3 surprising facts per city

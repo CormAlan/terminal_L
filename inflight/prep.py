@@ -64,7 +64,7 @@ def lookup_airport(code):
             if code in (a["iata_code"], a["icao_code"], a["ident"]):
                 return {
                     "iata_code": a["iata_code"] or a["ident"], "icao_code": a["icao_code"] or a["ident"],
-                    "name": a["name"], "municipality": a["municipality"] or a["name"],
+                    "name": a["name"], "municipality": re.sub(r"\s*\(.*\)", "", a["municipality"] or a["name"]),
                     "latitude": float(a["latitude_deg"]), "longitude": float(a["longitude_deg"]),
                     "country_iso_name": a["iso_country"],
                 }
